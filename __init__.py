@@ -6,3 +6,4 @@
 from .core import search
 from .core import get_cutout
 from .core import open_fits
+from .core import get_image
