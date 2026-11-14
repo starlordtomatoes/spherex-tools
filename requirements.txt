@@ -1,0 +1,4 @@
+astroquery
+astropy
+requests
+numpy
