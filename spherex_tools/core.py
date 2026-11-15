@@ -1,9 +1,5 @@
 
-# spherex-tools
-# a small python library for accessing spherex observations
-#
-# the goal is to make common archive operations easier to use
-# without having to manually handle every archive request
+"""Helpers for querying and inspecting SPHEREx observations from the IRSA archive."""
 
 import requests
 import numpy as np
@@ -17,12 +13,18 @@ from astropy.io import fits
 
 
 def search(ra, dec, radius=1):
-    # ra and dec point towards a location in the sky
-    # radius controls how far around that location the search extends
+    """Search the SPHEREx archive for observations near a sky position.
 
+    Args:
+        ra: Right ascension in degrees.
+        dec: Declination in degrees.
+        radius: Search radius in arcseconds.
+
+    Returns:
+        A query result table from astroquery's IRSA SIA service.
+    """
     coord = SkyCoord(ra, dec, unit="deg")
 
-    # querying the public spherex collection through irsa
     results = Irsa.query_sia(
         pos=(coord, radius * u.arcsec),
         collection="spherex_qr2"
@@ -32,9 +34,17 @@ def search(ra, dec, radius=1):
 
 
 def get_cutout(observation, ra, dec, size=0.05):
-    # an observation contains an access_url pointing to its fits file
-    # the archive can return a smaller image around the requested coordinates
+    """Download a FITS cutout around a target coordinate.
 
+    Args:
+        observation: A row from a search result containing an ``access_url``.
+        ra: Right ascension in degrees for the cutout center.
+        dec: Declination in degrees for the cutout center.
+        size: Desired cutout size in degrees.
+
+    Returns:
+        The raw FITS file content as bytes.
+    """
     access_url = observation["access_url"]
 
     cutout_url = (
@@ -44,17 +54,20 @@ def get_cutout(observation, ra, dec, size=0.05):
     )
 
     response = requests.get(cutout_url, timeout=120)
-
-    # an unsuccessful download shouldn't silently produce a broken fits file
     response.raise_for_status()
 
     return response.content
 
 
 def open_fits(data):
-    # accepts the downloaded bytes and opens them as a fits file
-    # BytesIO lets astropy read the data without saving a temporary file
+    """Open a FITS file from bytes or a file-like object.
 
+    Args:
+        data: FITS bytes or a readable file-like object.
+
+    Returns:
+        An ``astropy.io.fits.HDUList`` instance.
+    """
     if isinstance(data, bytes):
         data = BytesIO(data)
 
@@ -64,9 +77,18 @@ def open_fits(data):
 
 
 def get_image(hdul, product="IMAGE"):
-    # retrieve a particular data product from the fits file
-    # IMAGE is the default, but FLAGS, VARIANCE and ZODI may also be available
+    """Read a named image product from a FITS file.
 
+    Args:
+        hdul: An HDU list returned by ``open_fits``.
+        product: FITS extension name to read. Defaults to ``"IMAGE"``.
+
+    Returns:
+        A NumPy array for the selected data product.
+
+    Raises:
+        ValueError: If the requested product is missing or empty.
+    """
     if product not in hdul:
         raise ValueError(f"{product} is not available in this fits file")
 
